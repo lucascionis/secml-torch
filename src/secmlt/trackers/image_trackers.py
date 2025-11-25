@@ -20,6 +20,7 @@ class SampleTracker(Tracker):
         scores: torch.Tensor,
         x_adv: torch.Tensor,
         delta: torch.Tensor,
+        best_delta: torch.Tensor,
         grad: torch.Tensor,
     ) -> None:
         """
@@ -37,6 +38,8 @@ class SampleTracker(Tracker):
             The adversarial examples at the current iteration.
         delta : torch.Tensor
             The adversarial perturbations at the current iteration.
+        best_delta : torch.Tensor
+            The best adversarial perturbations found up to the current iteration.
         grad : torch.Tensor
             The gradient of delta at the given iteration.
         """
@@ -59,6 +62,7 @@ class GradientsTracker(Tracker):
         scores: torch.Tensor,
         x_adv: torch.Tensor,
         delta: torch.Tensor,
+        best_delta: torch.Tensor,
         grad: torch.Tensor,
     ) -> None:
         """
@@ -76,6 +80,8 @@ class GradientsTracker(Tracker):
             The adversarial examples at the current iteration.
         delta : torch.Tensor
             The adversarial perturbations at the current iteration.
+        best_delta : torch.Tensor
+            The best adversarial perturbations found up to the current iteration.
         grad : torch.Tensor
             The gradient of delta at the given iteration.
         """

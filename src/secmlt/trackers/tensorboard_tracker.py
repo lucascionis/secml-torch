@@ -70,6 +70,7 @@ class TensorboardTracker(Tracker):
         scores: torch.Tensor,
         x_adv: torch.tensor,
         delta: torch.Tensor,
+        best_delta: torch.Tensor,
         grad: torch.Tensor,
     ) -> None:
         """
@@ -87,11 +88,13 @@ class TensorboardTracker(Tracker):
             The adversarial examples at the current iteration.
         delta : torch.Tensor
             The adversarial perturbations at the current iteration.
+        best_delta : torch.Tensor
+            The best adversarial perturbations found up to the current iteration.
         grad : torch.Tensor
             The gradient of delta at the given iteration.
         """
         for tracker in self.trackers:
-            tracker.track(iteration, loss, scores, x_adv, delta, grad)
+            tracker.track(iteration, loss, scores, x_adv, delta, best_delta, grad)
             tracked_value = tracker.get_last_tracked()
             if tracked_value is None:
                 continue

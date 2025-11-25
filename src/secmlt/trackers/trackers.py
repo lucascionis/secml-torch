@@ -39,6 +39,7 @@ class Tracker(ABC):
         scores: torch.Tensor,
         x_adv: torch.tensor,
         delta: torch.Tensor,
+        best_delta: torch.Tensor,
         grad: torch.Tensor,
     ) -> None:
         """
@@ -56,6 +57,8 @@ class Tracker(ABC):
             The adversarial examples at the current iteration.
         delta : torch.Tensor
             The adversarial perturbations at the current iteration.
+        best_delta : torch.Tensor
+            The best adversarial perturbations found up to the current iteration.
         grad : torch.Tensor
             The gradient of delta at the given iteration.
         """
@@ -147,6 +150,7 @@ class LossTracker(Tracker):
         scores: torch.Tensor,
         x_adv: torch.tensor,
         delta: torch.Tensor,
+        best_delta: torch.Tensor,
         grad: torch.Tensor,
     ) -> None:
         """
@@ -164,6 +168,8 @@ class LossTracker(Tracker):
             The adversarial examples at the current iteration.
         delta : torch.Tensor
             The adversarial perturbations at the current iteration.
+        best_delta : torch.Tensor
+            The best adversarial perturbations found up to the current iteration.
         grad : torch.Tensor
             The gradient of delta at the given iteration.
         """
@@ -189,6 +195,7 @@ class ScoresTracker(Tracker):
         scores: torch.Tensor,
         x_adv: torch.tensor,
         delta: torch.Tensor,
+        best_delta: torch.Tensor,
         grad: torch.Tensor,
     ) -> None:
         """
@@ -206,6 +213,8 @@ class ScoresTracker(Tracker):
             The adversarial examples at the current iteration.
         delta : torch.Tensor
             The adversarial perturbations at the current iteration.
+        best_delta : torch.Tensor
+            The best adversarial perturbations found up to the current iteration.
         grad : torch.Tensor
             The gradient of delta at the given iteration.
         """
@@ -230,6 +239,7 @@ class PredictionTracker(Tracker):
         scores: torch.Tensor,
         x_adv: torch.tensor,
         delta: torch.Tensor,
+        best_delta: torch.Tensor,
         grad: torch.Tensor,
     ) -> None:
         """
@@ -247,6 +257,8 @@ class PredictionTracker(Tracker):
             The adversarial examples at the current iteration.
         delta : torch.Tensor
             The adversarial perturbations at the current iteration.
+        best_delta : torch.Tensor
+            The best adversarial perturbations found up to the current iteration.
         grad : torch.Tensor
             The gradient of delta at the given iteration.
         """
@@ -276,6 +288,7 @@ class PerturbationNormTracker(Tracker):
         scores: torch.Tensor,
         x_adv: torch.tensor,
         delta: torch.Tensor,
+        best_delta: torch.Tensor,
         grad: torch.Tensor,
     ) -> None:
         """
@@ -293,10 +306,61 @@ class PerturbationNormTracker(Tracker):
             The adversarial examples at the current iteration.
         delta : torch.Tensor
             The adversarial perturbations at the current iteration.
+        best_delta : torch.Tensor
+            The best adversarial perturbations found up to the current iteration.
         grad : torch.Tensor
             The gradient of delta at the given iteration.
         """
         self.tracked.append(delta.flatten(start_dim=1).norm(p=self.p, dim=-1))
+
+
+class BestPerturbationNormTracker(Tracker):
+    """Tracker for best found perturbation norm."""
+
+    def __init__(self, p: LpPerturbationModels = LpPerturbationModels.L2) -> None:
+        """
+        Create best perturbation norm tracker.
+
+        Parameters
+        ----------
+        p : LpPerturbationModels, optional
+            Perturbation model to compute the norm, by default LpPerturbationModels.L2.
+        """
+        super().__init__("BestPertNorm")
+        self.p = LpPerturbationModels.get_p(p)
+        self.tracked = []
+
+    def track(
+        self,
+        iteration: int,
+        loss: torch.Tensor,
+        scores: torch.Tensor,
+        x_adv: torch.tensor,
+        delta: torch.Tensor,
+        best_delta: torch.Tensor,
+        grad: torch.Tensor,
+    ) -> None:
+        """
+        Track the perturbation norm at the current iteration.
+
+        Parameters
+        ----------
+        iteration : int
+            The attack iteration number.
+        loss : torch.Tensor
+            The value of the (per-sample) loss of the attack.
+        scores : torch.Tensor
+            The output scores from the model.
+        x_adv : torch.tensor
+            The adversarial examples at the current iteration.
+        delta : torch.Tensor
+            The adversarial perturbations at the current iteration.
+        best_delta : torch.Tensor
+            The best adversarial perturbations found up to the current iteration.
+        grad : torch.Tensor
+            The gradient of delta at the given iteration.
+        """
+        self.tracked.append(best_delta.flatten(start_dim=1).norm(p=self.p, dim=-1))
 
 
 class GradientNormTracker(Tracker):
@@ -323,6 +387,7 @@ class GradientNormTracker(Tracker):
         scores: torch.Tensor,
         x_adv: torch.tensor,
         delta: torch.Tensor,
+        best_delta: torch.Tensor,
         grad: torch.Tensor,
     ) -> None:
         """
@@ -340,6 +405,8 @@ class GradientNormTracker(Tracker):
             The adversarial examples at the current iteration.
         delta : torch.Tensor
             The adversarial perturbations at the current iteration.
+        best_delta : torch.Tensor
+            The best adversarial perturbations found up to the current iteration.
         grad : torch.Tensor
             The gradient of delta at the given iteration.
         """
