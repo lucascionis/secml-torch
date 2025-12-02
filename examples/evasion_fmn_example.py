@@ -41,6 +41,7 @@ native_attack = FMN(
     y_target=y_target,
     backend=Backends.NATIVE,
     trackers=trackers,
+    device=device,
 )
 
 native_adv_ds = native_attack(model, test_loader)
@@ -56,6 +57,7 @@ foolbox_attack = FMN(
     step_size=step_size,
     y_target=y_target,
     backend=Backends.FOOLBOX,
+    device=device,
 )
 f_adv_ds = foolbox_attack(model, test_loader)
 
@@ -65,6 +67,7 @@ advlib_attack = FMN(
     step_size=step_size,
     y_target=y_target,
     backend=Backends.ADVLIB,
+    device=device,
 )
 al_adv_ds = advlib_attack(model, test_loader)
 

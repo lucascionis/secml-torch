@@ -26,6 +26,7 @@ class BaseFoolboxEvasionAttack(BaseEvasionAttack):
         lb: float = 0.0,
         ub: float = 1.0,
         trackers: type[TRACKER_TYPE] | None = None,
+        device: torch.device | str | None = None,
     ) -> None:
         """
         Wrap Foolbox attacks.
@@ -51,7 +52,7 @@ class BaseFoolboxEvasionAttack(BaseEvasionAttack):
         self.epsilon = epsilon
         self.y_target = y_target
         self.trackers = trackers
-        super().__init__()
+        super().__init__(device=device)
 
     @classmethod
     def _trackers_allowed(cls) -> Literal[False]:
@@ -66,9 +67,7 @@ class BaseFoolboxEvasionAttack(BaseEvasionAttack):
         if not isinstance(model, BasePytorchClassifier):
             msg = "Model type not supported."
             raise NotImplementedError(msg)
-        device = model._get_device()
-        samples = samples.to(device)
-        labels = labels.to(device)
+        device = self.device if self.device is not None else model._get_device()
         foolbox_model = PyTorchModel(model.model, (self.lb, self.ub), device=device)
         if self.y_target is None:
             criterion = Misclassification(labels)

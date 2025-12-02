@@ -4,6 +4,8 @@ from __future__ import annotations  # noqa: I001
 
 import importlib.util
 
+import torch
+
 from secmlt.adv.backends import Backends
 from secmlt.adv.evasion.base_evasion_attack import (
     BaseEvasionAttack,
@@ -140,6 +142,7 @@ class PGDNative(ModularEvasionAttackFixedEps):
         lb: float = 0.0,
         ub: float = 1.0,
         trackers: list[Tracker] | None = None,
+        device: torch.device | str | None = None,
         **kwargs,
     ) -> None:
         """
@@ -202,6 +205,7 @@ class PGDNative(ModularEvasionAttackFixedEps):
             gradient_processing=gradient_processing,
             initializer=initializer,
             trackers=trackers,
+            device=device,
         )
 
     @classmethod

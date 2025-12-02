@@ -137,6 +137,7 @@ class DDNNative(ModularEvasionAttackMinDistance):
         lb: float = 0.0,
         ub: float = 1.0,
         trackers: list[Tracker] | None = None,
+        device: torch.device | str | None = None,
         **kwargs,
     ) -> None:
         """
@@ -188,6 +189,7 @@ class DDNNative(ModularEvasionAttackMinDistance):
             gradient_processing=gradient_processing,
             initializer=initializer,
             trackers=trackers,
+            device=device,
         )
 
     @classmethod

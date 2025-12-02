@@ -51,9 +51,11 @@ class LpUniformSampling:
             same shape as the input tensor `x`.
         """
         num_samples, dim = x.flatten(1).shape
-        return self.sample(num_samples, dim).reshape(x.shape)
+        return self.sample(num_samples, dim, device=x.device).reshape(x.shape)
 
-    def sample(self, num_samples: int = 1, dim: int = 2) -> torch.Tensor:
+    def sample(
+        self, num_samples: int = 1, dim: int = 2, device: torch.device | None = None
+    ) -> torch.Tensor:
         """
         Sample uniformly from the unit Lp ball.
 
@@ -78,12 +80,13 @@ class LpUniformSampling:
         _p = LpPerturbationModels.get_p(self.p)
 
         if self.p == LpPerturbationModels.LINF:
-            ball = 2 * torch.rand(size=shape) - 1
+            ball = 2 * torch.rand(size=shape, device=device) - 1
         elif self.p == LpPerturbationModels.L0:
-            ball = torch.rand(size=shape).sign()
+            ball = torch.rand(size=shape, device=device).sign()
         else:
-            g = GeneralizedNormal().sample(shape)
-            e = Exponential(rate=1).sample(sample_shape=(num_samples,))
+            g = GeneralizedNormal().sample(shape, device=device)
+            rate = torch.tensor(1.0, device=device)
+            e = Exponential(rate=rate).sample(sample_shape=(num_samples,))
             d = ((torch.abs(g) ** _p).sum(-1) + e) ** (1 / _p)
             ball = g / d.unsqueeze(-1)
 
