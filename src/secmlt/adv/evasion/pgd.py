@@ -4,8 +4,6 @@ from __future__ import annotations  # noqa: I001
 
 import importlib.util
 
-import torch
-
 from secmlt.adv.backends import Backends
 from secmlt.adv.evasion.base_evasion_attack import (
     BaseEvasionAttack,
@@ -30,6 +28,7 @@ from secmlt.optimization.scheduler_factory import LRSchedulerFactory
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    import torch
     from secmlt.trackers.trackers import Tracker
 
 

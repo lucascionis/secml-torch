@@ -136,6 +136,5 @@ class ModularEvasionAttackFixedEps(ModularEvasionAttack):
             optimizer.step()
             scheduler.step()
 
-
         x_adv, _ = self.manipulation_function(samples.data, best_delta.data)
         return x_adv, best_delta

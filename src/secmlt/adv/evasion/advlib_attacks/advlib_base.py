@@ -72,7 +72,6 @@ class BaseAdvLibEvasionAttack(BaseEvasionAttack):
         if not isinstance(model, BasePytorchClassifier):
             msg = "Model type not supported."
             raise NotImplementedError(msg)
-        device = self.device if self.device is not None else model._get_device()
         if self.y_target is not None:
             targets = torch.ones_like(labels) * self.y_target
         else:

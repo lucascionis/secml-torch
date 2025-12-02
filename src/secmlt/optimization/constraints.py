@@ -43,7 +43,7 @@ class Constraint(ABC):
     def _to_device(self, device: torch.device) -> None:
         """Move any internal tensors to the provided device."""
         # Default implementation is a no-op for stateless constraints.
-        return None
+        return
 
 
 class InputSpaceConstraint(Constraint, ABC):

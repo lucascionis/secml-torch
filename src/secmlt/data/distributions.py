@@ -10,7 +10,9 @@ class Distribution(ABC):
     """Abstract class for distributions."""
 
     @abstractmethod
-    def sample(self, shape: torch.Size, device: torch.device | None = None) -> torch.Tensor:
+    def sample(
+        self, shape: torch.Size, device: torch.device | None = None
+    ) -> torch.Tensor:
         """
         Sample from the distribution.
 
@@ -34,7 +36,9 @@ class Distribution(ABC):
 class Rademacher(Distribution):
     """Samples from Rademacher distribution (-1, 1) with equal probability."""
 
-    def sample(self, shape: torch.Size, device: torch.device | None = None) -> torch.Tensor:
+    def sample(
+        self, shape: torch.Size, device: torch.device | None = None
+    ) -> torch.Tensor:
         """
         Sample from the Rademacher distribution.
 
