@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import torch
 from autoattack.autopgd_base import APGDAttack
+
 from .autoattack_base import BaseAutoAttack
 
 if TYPE_CHECKING:
@@ -65,9 +66,7 @@ class APGDAutoAttack(BaseAutoAttack):
 
         attack_loss = self.loss
         attack_device = (
-            str(self.device)
-            if isinstance(self.device, torch.device)
-            else self.device
+            str(self.device) if isinstance(self.device, torch.device) else self.device
         )
         attack = APGDAttack(
             predict=model,

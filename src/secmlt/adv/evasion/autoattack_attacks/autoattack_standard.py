@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Sequence
+from typing import TYPE_CHECKING
 
-import torch
 from autoattack import AutoAttack
+
 from .autoattack_base import BaseAutoAttack
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    import torch
     from secmlt.models.base_model import BaseModel
     from secmlt.trackers.trackers import Tracker
 
@@ -29,7 +32,8 @@ class AutoAttackStandard(BaseAutoAttack):
         trackers: list[Tracker] | None = None,
         device: torch.device | str | None = None,
     ) -> None:
-        """
+        """Configure the AutoAttack standard pipeline wrapper.
+
         Parameters
         ----------
         perturbation_model : str

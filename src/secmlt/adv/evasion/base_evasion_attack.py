@@ -150,7 +150,9 @@ class BaseEvasionAttack:
 
     def __init__(self, device: torch.device | str | None = None) -> None:
         """Initialize attack with an optional target device."""
-        self.device = torch.device(device) if device is not None else torch.device("cpu")
+        self.device = (
+            torch.device(device) if device is not None else torch.device("cpu")
+        )
         self._trackers = None
 
     def __call__(self, model: BaseModel, data_loader: DataLoader) -> DataLoader:

@@ -1,6 +1,6 @@
 """Wrapper of the Auto-PGD attack implemented in Adversarial Library."""
 
-from __future__ import annotations  # noqa: I001
+from __future__ import annotations
 
 from functools import partial
 from typing import TYPE_CHECKING
@@ -82,22 +82,20 @@ class APGDAdvLib(BaseAdvLibEvasionAttack):
             Additional arguments forwarded to :func:`adv_lib.attacks.auto_pgd.apgd`.
         """
         if seed != 0:
-            raise NotImplementedError(
-                "Seeding is not implemented for Adversarial Library Auto-PGD."
-            )
+            msg = "Seeding is not implemented for Adversarial Library Auto-PGD."
+            raise NotImplementedError(msg)
         if topk is not None:
-            raise NotImplementedError(
-                "The 'topk' argument is not supported by the AdvLib Auto-PGD backend."
-            )
+            msg = "The 'topk' argument is not supported by the AdvLib Auto-PGD backend."
+            raise NotImplementedError(msg)
         if verbose:
-            raise NotImplementedError(
-                "Verbose mode is not available for the AdvLib Auto-PGD backend."
-            )
+            msg = "Verbose mode is not available for the AdvLib Auto-PGD backend."
+            raise NotImplementedError(msg)
 
         loss = loss.lower()
         supported_losses = {"ce", "dlr"}
         if loss not in supported_losses:
-            msg = f"Unsupported loss '{loss}'. Available options: {sorted(supported_losses)}."
+            available = ", ".join(sorted(supported_losses))
+            msg = f"Unsupported loss '{loss}'. Available options: {available}."
             raise ValueError(msg)
 
         use_large_reps = kwargs.pop("use_large_reps", use_largereps)

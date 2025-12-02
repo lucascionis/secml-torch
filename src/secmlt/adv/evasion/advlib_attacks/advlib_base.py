@@ -78,9 +78,8 @@ class BaseAdvLibEvasionAttack(BaseEvasionAttack):
             targets = torch.ones_like(labels) * self.y_target
         else:
             targets = labels
-        if self.epsilon < float(torch.inf):
-            if self.EPSILON_KWARG is not None:
-                self.kwargs.update({self.EPSILON_KWARG: self.epsilon})
+        if self.epsilon < float(torch.inf) and self.EPSILON_KWARG is not None:
+            self.kwargs.update({self.EPSILON_KWARG: self.epsilon})
         advx = self.advlib_attack(
             model=model,
             inputs=samples,

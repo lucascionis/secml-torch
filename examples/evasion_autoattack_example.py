@@ -25,10 +25,7 @@ perturbation_model = LpPerturbationModels.LINF
 epsilon = 0.3
 
 aa_attack = AutoAttackStandard(
-    perturbation_model=perturbation_model,
-    epsilon=epsilon,
-    device=device,
-    verbose=True
+    perturbation_model=perturbation_model, epsilon=epsilon, device=device, verbose=True
 )
 
 aa_adv_ds = aa_attack(model, test_loader)

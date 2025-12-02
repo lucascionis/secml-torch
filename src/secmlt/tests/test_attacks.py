@@ -1,18 +1,19 @@
-import pytest
 import importlib.util
+
+import pytest
 from secmlt.adv.backends import Backends
 from secmlt.adv.evasion.advlib_attacks.advlib_apgd import APGDAdvLib
 from secmlt.adv.evasion.advlib_attacks.advlib_pgd import PGDAdvLib
-from secmlt.adv.evasion.base_evasion_attack import BaseEvasionAttack
-from secmlt.adv.evasion.ddn import DDN
+from secmlt.adv.evasion.apgd import APGD
 from secmlt.adv.evasion.autoattack_attacks.autoattack_apgd import (
     APGDAutoAttack,
 )
 from secmlt.adv.evasion.autoattack_attacks.autoattack_standard import (
     AutoAttackStandard,
 )
+from secmlt.adv.evasion.base_evasion_attack import BaseEvasionAttack
+from secmlt.adv.evasion.ddn import DDN
 from secmlt.adv.evasion.fmn import FMN, FMNNative
-from secmlt.adv.evasion.apgd import APGD
 from secmlt.adv.evasion.foolbox_attacks.foolbox_pgd import PGDFoolbox
 from secmlt.adv.evasion.perturbation_models import LpPerturbationModels
 from secmlt.adv.evasion.pgd import PGD, PGDNative
@@ -267,15 +268,18 @@ def test_invalid_perturbation_models(attack_class):
 
 
 def test_apgd_advlib_attack_runs(model, data_loader):
-    pytest.skip(
-        "AdvLib AutoPGD uses grad-tracked clamps (`torch.maximum/torch.minimum(..., out=...)`), "
-        "which PyTorch 2.5+ disallows during testing."
+    msg = (
+        "AdvLib AutoPGD uses grad-tracked clamps"
+        " (`torch.maximum/torch.minimum(..., out=...)`), which PyTorch 2.5+ disallows "
+        "during testing."
     )
+    pytest.skip(msg)
 
 
 def test_apgd_autoattack_import_error(monkeypatch):
     def _raise():
-        raise ImportError("AutoAttack extra not installed.")
+        msg = "AutoAttack extra not installed."
+        raise ImportError(msg)
 
     monkeypatch.setattr(APGD, "_get_autoattack_implementation", staticmethod(_raise))
 
@@ -304,7 +308,8 @@ def test_apgd_autoattack_targeted_not_supported(monkeypatch):
             return {LpPerturbationModels.LINF}
 
         def _run(self, model, samples, labels):
-            raise AssertionError("Run should not be invoked in this test.")
+            msg = "Run should not be invoked in this test."
+            raise AssertionError(msg)
 
     monkeypatch.setattr(
         APGD,
@@ -312,7 +317,7 @@ def test_apgd_autoattack_targeted_not_supported(monkeypatch):
         staticmethod(lambda: DummyAutoAttack),
     )
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Targeted AutoPGD is not supported"):
         APGD(
             perturbation_model=LpPerturbationModels.LINF,
             epsilon=0.3,

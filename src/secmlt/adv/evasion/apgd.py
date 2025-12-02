@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import importlib.util
-from functools import partial
 from typing import TYPE_CHECKING
 
 from secmlt.adv.backends import Backends
@@ -11,20 +10,6 @@ from secmlt.adv.evasion.base_evasion_attack import (
     BaseEvasionAttack,
     BaseEvasionAttackCreator,
 )
-from secmlt.adv.evasion.modular_attacks.modular_attack_fixed_eps import (
-    ModularEvasionAttackFixedEps,
-)
-from secmlt.adv.evasion.perturbation_models import LpPerturbationModels
-from secmlt.manipulations.manipulation import AdditiveManipulation
-from secmlt.optimization.constraints import (
-    ClipConstraint,
-    L2Constraint,
-    LInfConstraint,
-)
-from secmlt.optimization.gradient_processing import LinearProjectionGradientProcessing
-from secmlt.optimization.initializer import Initializer, RandomLpInitializer
-from secmlt.optimization.optimizer_factory import OptimizerFactory
-from secmlt.optimization.scheduler_factory import LRSchedulerFactory
 
 if TYPE_CHECKING:
     from secmlt.trackers.trackers import Tracker
@@ -116,9 +101,7 @@ class APGD(BaseEvasionAttackCreator):
 
     @classmethod
     def get_implementation(cls, backend: str) -> BaseEvasionAttack:
-        """
-        Get the Auto-PGD implementation for the requested backend.
-        """
+        """Get the Auto-PGD implementation for the requested backend."""
         cls.check_backend_available(backend)
         implementations = {
             Backends.AUTOATTACK: cls._get_autoattack_implementation,
