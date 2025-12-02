@@ -10,7 +10,9 @@ class Distribution(ABC):
     """Abstract class for distributions."""
 
     @abstractmethod
-    def sample(self, shape: torch.Size) -> torch.Tensor:
+    def sample(
+        self, shape: torch.Size, device: torch.device | None = None
+    ) -> torch.Tensor:
         """
         Sample from the distribution.
 
@@ -34,7 +36,9 @@ class Distribution(ABC):
 class Rademacher(Distribution):
     """Samples from Rademacher distribution (-1, 1) with equal probability."""
 
-    def sample(self, shape: torch.Size) -> torch.Tensor:
+    def sample(
+        self, shape: torch.Size, device: torch.device | None = None
+    ) -> torch.Tensor:
         """
         Sample from the Rademacher distribution.
 
@@ -58,7 +62,7 @@ class Rademacher(Distribution):
         >>> sample = dist.sample((3, 4))
         """
         _prob = 0.5
-        return torch.where((torch.rand(size=shape) < _prob), -1, 1)
+        return torch.where((torch.rand(size=shape, device=device) < _prob), -1, 1)
 
 
 class GeneralizedNormal(Distribution):
@@ -73,7 +77,9 @@ class GeneralizedNormal(Distribution):
     parameter, and `\beta` is the shape parameter.
     """
 
-    def sample(self, shape: torch.Size, p: float = 2) -> torch.Tensor:
+    def sample(
+        self, shape: torch.Size, p: float = 2, device: torch.device | None = None
+    ) -> torch.Tensor:
         """
         Sample from the generalized normal distribution.
 
@@ -98,6 +104,8 @@ class GeneralizedNormal(Distribution):
         >>> dist = GeneralizedNormal()
         >>> sample = dist.sample((3, 4))
         """
-        g = Gamma(concentration=1 / p, rate=1).sample(sample_shape=shape)
-        r = Rademacher().sample(shape=shape)
+        concentration = torch.tensor(1 / p, device=device)
+        rate = torch.tensor(1.0, device=device)
+        g = Gamma(concentration=concentration, rate=rate).sample(sample_shape=shape)
+        r = Rademacher().sample(shape=shape, device=device)
         return r * g ** (1 / p)

@@ -26,6 +26,7 @@ class BaseAdvLibEvasionAttack(BaseEvasionAttack):
         lb: float = 0.0,
         ub: float = 1.0,
         trackers: type[TRACKER_TYPE] | None = None,
+        device: torch.device | str | None = None,
         **kwargs,
     ) -> None:
         """
@@ -56,7 +57,7 @@ class BaseAdvLibEvasionAttack(BaseEvasionAttack):
         self.y_target = y_target
         self.trackers = trackers
         self.kwargs = kwargs
-        super().__init__()
+        super().__init__(device=device)
 
     @classmethod
     def _trackers_allowed(cls) -> Literal[False]:
@@ -71,12 +72,9 @@ class BaseAdvLibEvasionAttack(BaseEvasionAttack):
         if not isinstance(model, BasePytorchClassifier):
             msg = "Model type not supported."
             raise NotImplementedError(msg)
-        device = model._get_device()
-        samples = samples.to(device)
         if self.y_target is not None:
             targets = torch.ones_like(labels) * self.y_target
         else:
-            labels = labels.to(device)
             targets = labels
         if self.epsilon < float(torch.inf):
             self.kwargs.update({"ε": self.epsilon})

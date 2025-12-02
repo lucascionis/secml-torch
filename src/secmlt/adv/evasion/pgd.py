@@ -28,6 +28,7 @@ from secmlt.optimization.scheduler_factory import LRSchedulerFactory
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
+    import torch
     from secmlt.trackers.trackers import Tracker
 
 
@@ -140,6 +141,7 @@ class PGDNative(ModularEvasionAttackFixedEps):
         lb: float = 0.0,
         ub: float = 1.0,
         trackers: list[Tracker] | None = None,
+        device: torch.device | str | None = None,
         **kwargs,
     ) -> None:
         """
@@ -202,6 +204,7 @@ class PGDNative(ModularEvasionAttackFixedEps):
             gradient_processing=gradient_processing,
             initializer=initializer,
             trackers=trackers,
+            device=device,
         )
 
     @classmethod

@@ -3,6 +3,7 @@
 from __future__ import annotations  # noqa: I001
 
 from typing import Union, TYPE_CHECKING
+import torch
 import torch.nn
 from secmlt.adv.evasion.modular_attacks.modular_attack import ModularEvasionAttack
 from secmlt.manipulations.manipulation import Manipulation
@@ -35,6 +36,7 @@ class ModularEvasionAttackFixedEps(ModularEvasionAttack):
         initializer: Initializer,
         gradient_processing: GradientProcessing,
         trackers: list[Tracker] | Tracker | None = None,
+        device: torch.device | str | None = None,
     ) -> None:
         """
         Create modular evasion attack.
@@ -73,6 +75,7 @@ class ModularEvasionAttackFixedEps(ModularEvasionAttack):
             initializer=initializer,
             gradient_processing=gradient_processing,
             trackers=trackers,
+            device=device,
         )
 
     def _run_loop(
@@ -132,7 +135,6 @@ class ModularEvasionAttackFixedEps(ModularEvasionAttack):
             delta.grad.data = self.gradient_processing(delta.grad.data)
             optimizer.step()
             scheduler.step()
-
 
         x_adv, _ = self.manipulation_function(samples.data, best_delta.data)
         return x_adv, best_delta

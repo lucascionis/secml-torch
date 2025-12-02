@@ -33,11 +33,17 @@ class Constraint(ABC):
         torch.Tensor
             Tensor projected onto the constraint.
         """
+        self._to_device(x.device)
         x_transformed = x.detach().clone()
         return self._apply_constraint(x_transformed)
 
     @abstractmethod
     def _apply_constraint(self, x: torch.Tensor, *args, **kwargs) -> torch.Tensor: ...
+
+    def _to_device(self, device: torch.device) -> None:
+        """Move any internal tensors to the provided device."""
+        # Default implementation is a no-op for stateless constraints.
+        return
 
 
 class InputSpaceConstraint(Constraint, ABC):
@@ -73,6 +79,7 @@ class InputSpaceConstraint(Constraint, ABC):
         torch.Tensor
             Tensor projected onto the constraint.
         """
+        self._to_device(x.device)
         x_transformed = x.detach().clone()
         x_transformed = self.preprocessing.invert(x_transformed)
         x_transformed = self._apply_constraint(x_transformed)
@@ -168,9 +175,10 @@ class LpConstraint(Constraint, ABC):
         torch.Tensor
             Tensor projected onto the Lp constraint.
         """
+        radius = self.radius.to(x.device)
         with torch.no_grad():
             norm = torch.linalg.norm(x.flatten(start_dim=1), ord=self.p, dim=1)
-            to_normalize = (norm > self.radius).view(-1, 1)
+            to_normalize = (norm > radius).view(-1, 1)
             proj_delta = self.project(x).flatten(start_dim=1)
             delta = torch.where(to_normalize, proj_delta, x.flatten(start_dim=1))
         return delta.view(x.shape)
@@ -193,6 +201,9 @@ class LpConstraint(Constraint, ABC):
         if not isinstance(value, torch.Tensor):
             value = torch.tensor(value, dtype=torch.float32)
         self._radius = value.unsqueeze(0) if value.ndim == 0 else value
+
+    def _to_device(self, device: torch.device) -> None:
+        self._radius = self._radius.to(device)
 
 
 class L2Constraint(LpConstraint):
@@ -389,12 +400,13 @@ class L0Constraint(LpConstraint):
         flat_x = x.flatten(start_dim=1)  # (batch_size, d)
 
         d = flat_x.shape[1]
-        radius = torch.ones((flat_x.shape[0],)) * torch.minimum(
-            self.radius, torch.tensor(d)
-        )
+        radius = torch.minimum(self.radius, torch.tensor(d, device=flat_x.device))
+        radius = radius.flatten()
+        if radius.numel() == 1:
+            radius = radius.expand(flat_x.shape[0])
         radius = torch.where(
             radius == float("inf"),
-            torch.full_like(radius.clone(), d),
+            torch.full_like(radius, d),
             radius,
         )
         radius = radius.to(dtype=torch.long)  # ensure it's integer-valued
@@ -457,6 +469,9 @@ class QuantizationConstraint(InputSpaceConstraint):
         # quantize x to the nearest custom level
         return self.levels[nearest_indices]
 
+    def _to_device(self, device: torch.device) -> None:
+        self.levels = self.levels.to(device)
+
 
 class MaskConstraint(Constraint):
     """Constraint for keeping components only on the given mask."""
@@ -493,3 +508,6 @@ class MaskConstraint(Constraint):
             )
             raise ValueError(msg)
         return torch.where(self.mask, x, torch.zeros_like(x))
+
+    def _to_device(self, device: torch.device) -> None:
+        self.mask = self.mask.to(device)

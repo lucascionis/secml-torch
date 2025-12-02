@@ -4,6 +4,7 @@ from __future__ import annotations  # noqa: I001
 
 from abc import abstractmethod
 from typing import Literal, Union, TYPE_CHECKING
+import torch
 import torch.nn
 from secmlt.adv.evasion.base_evasion_attack import BaseEvasionAttack
 from secmlt.manipulations.manipulation import Manipulation
@@ -50,6 +51,7 @@ class ModularEvasionAttack(BaseEvasionAttack):
         trackers: list[Tracker] | Tracker | None = None,
         optimizer_kwargs: dict | None = None,
         scheduler_kwargs: dict | None = None,
+        device: torch.device | str | None = None,
     ) -> None:
         """
         Create modular evasion attack.
@@ -123,7 +125,7 @@ class ModularEvasionAttack(BaseEvasionAttack):
         self.initializer = initializer
         self.gradient_processing = gradient_processing
 
-        super().__init__()
+        super().__init__(device=device)
 
     @property
     def manipulation_function(self) -> Manipulation:

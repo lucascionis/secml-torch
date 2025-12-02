@@ -3,6 +3,7 @@
 from __future__ import annotations  # noqa: I001
 
 from typing import Union, TYPE_CHECKING
+import torch
 import torch.nn
 from secmlt.adv.evasion.modular_attacks.modular_attack import ModularEvasionAttack
 from secmlt.manipulations.manipulation import Manipulation
@@ -38,6 +39,7 @@ class ModularEvasionAttackMinDistance(ModularEvasionAttack):
         gamma: float = 0.05,
         min_step_size: float | None = None,
         min_gamma: float = 0.001,
+        device: torch.device | str | None = None,
     ) -> None:
         """
         Create modular evasion attack.
@@ -85,6 +87,7 @@ class ModularEvasionAttackMinDistance(ModularEvasionAttack):
             trackers=trackers,
             optimizer_kwargs=optimizer_kwargs,
             scheduler_kwargs=scheduler_kwargs,
+            device=device,
         )
 
     def _run_loop(

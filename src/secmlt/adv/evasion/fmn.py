@@ -148,6 +148,7 @@ class FMNNative(ModularEvasionAttackMinDistance):
         trackers: list[Tracker] | None = None,
         gamma: float = 0.05,
         min_step_size: float | None = None,
+        device: torch.device | str | None = None,
     ) -> None:
         """
         Create Native FMN attack.
@@ -212,6 +213,7 @@ class FMNNative(ModularEvasionAttackMinDistance):
             trackers=trackers,
             gamma=gamma,
             min_step_size=min_step_size,
+            device=device,
         )
 
     @classmethod
