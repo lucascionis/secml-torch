@@ -11,6 +11,8 @@ from secmlt.adv.evasion.perturbation_models import LpPerturbationModels
 class PGDAdvLib(BaseAdvLibEvasionAttack):
     """Wrapper of the Adversarial Library implementation of the PGD attack."""
 
+    EPSILON_KWARG = "ε"
+
     def __init__(
         self,
         perturbation_model: str,
