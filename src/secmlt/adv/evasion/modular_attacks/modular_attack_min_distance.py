@@ -108,6 +108,10 @@ class ModularEvasionAttackMinDistance(ModularEvasionAttack):
         adv_found = torch.zeros(samples.shape[0], dtype=torch.bool, device=x_adv.device)
         grad_before_processing = torch.zeros_like(delta)
 
+        best_distances = best_distances.to(device=self.device)
+        best_delta = best_delta.to(device=self.device)
+        epsilons = epsilons.to(device=self.device)
+        adv_found = adv_found.to(device=self.device)
         for i in range(self.num_steps):
             x_adv.data, delta.data = self.manipulation_function(
                 samples.data,
@@ -131,7 +135,7 @@ class ModularEvasionAttackMinDistance(ModularEvasionAttack):
                 delta.detach().cpu().flatten(start_dim=1),
                 p=self.perturbation_model,
                 dim=-1,
-            )
+            ).to(device=self.device)
             condition = torch.logical_and(
                 is_adv,
                 distances.detach() < best_distances,
@@ -145,14 +149,14 @@ class ModularEvasionAttackMinDistance(ModularEvasionAttack):
                 ),
                 delta_before_processing.data,
                 best_delta.data,
-            )
+            ).to(device=self.device)
 
             # save best distances found for successful adv
             best_distances.data = torch.where(
                 condition,
                 distances,
                 best_distances,
-            )
+            ).to(device=self.device)
 
             if self.trackers is not None:
                 for tracker in self.trackers:
@@ -182,7 +186,7 @@ class ModularEvasionAttackMinDistance(ModularEvasionAttack):
                 target,
                 delta,
                 adv_found,
-            )
+            ).to(device=self.device)
 
             epsilons = torch.clamp(epsilons, 0)
             # cosine annealing for gamma
@@ -194,4 +198,5 @@ class ModularEvasionAttackMinDistance(ModularEvasionAttack):
         self.manipulation_function.perturbation_constraints[0].radius = best_distances
 
         x_adv, _ = self.manipulation_function(samples.data, best_delta.data)
+
         return x_adv, best_delta

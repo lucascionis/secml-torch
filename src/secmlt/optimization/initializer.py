@@ -1,8 +1,14 @@
 """Initializers for the attacks."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 import torch
-from secmlt.adv.evasion.perturbation_models import LpPerturbationModels
 from secmlt.optimization.random_perturb import RandomPerturb
+
+if TYPE_CHECKING:
+    from secmlt.adv.evasion.perturbation_models import LpPerturbationModels
 
 
 class Initializer:

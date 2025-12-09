@@ -1,5 +1,7 @@
 """Implementation of Lp uniform sampling."""
 
+from __future__ import annotations
+
 import torch
 from secmlt.adv.evasion.perturbation_models import LpPerturbationModels
 from secmlt.data.distributions import GeneralizedNormal
