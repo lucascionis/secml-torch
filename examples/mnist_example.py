@@ -47,8 +47,8 @@ native_attack = PGD(
     y_target=y_target,
     backend=Backends.NATIVE,
     trackers=trackers,
+    device=device,
 )
-
 native_adv_ds = native_attack(model, test_loader)
 
 for tracker in trackers:
@@ -68,6 +68,7 @@ foolbox_attack = PGD(
     random_start=False,
     y_target=y_target,
     backend=Backends.FOOLBOX,
+    device=device,
 )
 f_adv_ds = foolbox_attack(model, test_loader)
 
@@ -80,6 +81,7 @@ advlib_attack = PGD(
     loss_function="dlr",
     y_target=y_target,
     backend=Backends.ADVLIB,
+    device=device,
 )
 al_adv_ds = advlib_attack(model, test_loader)
 

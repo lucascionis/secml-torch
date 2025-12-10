@@ -39,7 +39,7 @@ class ModularEvasionAttackMinDistance(ModularEvasionAttack):
         gamma: float = 0.05,
         min_step_size: float | None = None,
         min_gamma: float = 0.001,
-        device: torch.device | str | None = None,
+        device: torch.device | str = "cpu",
     ) -> None:
         """
         Create modular evasion attack.
@@ -105,7 +105,7 @@ class ModularEvasionAttackMinDistance(ModularEvasionAttack):
         best_delta = torch.zeros_like(samples)
         epsilons = self._init_epsilons(samples)
         gamma = self.gamma
-        adv_found = torch.zeros(samples.shape[0], dtype=torch.bool, device=x_adv.device)
+        adv_found = torch.zeros(samples.shape[0], dtype=torch.bool, device=self.device)
         grad_before_processing = torch.zeros_like(delta)
 
         best_distances = best_distances.to(device=self.device)

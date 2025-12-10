@@ -148,9 +148,9 @@ class BaseEvasionAttackCreator:
 class BaseEvasionAttack:
     """Base class for evasion attacks."""
 
-    def __init__(self, device: torch.device | str | None = None) -> None:
+    def __init__(self, device: torch.device | str = "cpu") -> None:
         """Initialize attack with an optional target device."""
-        self.device = torch.device(device) if device is not None else None
+        self.device = torch.device(device) if device is not None else "cpu"
         self._trackers = None
 
     def __call__(self, model: BaseModel, data_loader: DataLoader) -> DataLoader:

@@ -51,7 +51,7 @@ class ModularEvasionAttack(BaseEvasionAttack):
         trackers: list[Tracker] | Tracker | None = None,
         optimizer_kwargs: dict | None = None,
         scheduler_kwargs: dict | None = None,
-        device: torch.device | str | None = None,
+        device: torch.device | str = "cpu",
     ) -> None:
         """
         Create modular evasion attack.

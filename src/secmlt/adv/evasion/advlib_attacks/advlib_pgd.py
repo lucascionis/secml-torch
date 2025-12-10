@@ -84,6 +84,7 @@ class PGDAdvLib(BaseAdvLibEvasionAttack):
             y_target=y_target,
             lb=lb,
             ub=ub,
+            **kwargs,
         )
 
     @staticmethod

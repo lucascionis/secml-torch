@@ -36,7 +36,7 @@ class ModularEvasionAttackFixedEps(ModularEvasionAttack):
         initializer: Initializer,
         gradient_processing: GradientProcessing,
         trackers: list[Tracker] | Tracker | None = None,
-        device: torch.device | str | None = None,
+        device: torch.device | str = "cpu",
     ) -> None:
         """
         Create modular evasion attack.
@@ -93,6 +93,8 @@ class ModularEvasionAttackFixedEps(ModularEvasionAttack):
         best_delta = torch.zeros_like(samples)
         grad_before_processing = torch.zeros_like(delta)
 
+        best_losses = best_losses.to(self.device)
+        best_delta = best_delta.to(self.device)
         for i in range(self.num_steps):
             x_adv.data, delta.data = self.manipulation_function(
                 samples.data,
@@ -110,15 +112,15 @@ class ModularEvasionAttackFixedEps(ModularEvasionAttack):
             )
             # keep perturbation with best loss
             best_delta.data = torch.where(
-                atleast_kd(losses.detach().cpu() < best_losses, len(samples.shape)),
+                atleast_kd(losses.detach() < best_losses, len(samples.shape)),
                 delta_before_processing.data,
                 best_delta.data,
-            )
+            ).to(self.device)
             best_losses.data = torch.where(
-                losses.detach().cpu() < best_losses,
-                losses.detach().cpu(),
+                losses.detach() < best_losses,
+                losses.detach(),
                 best_losses.data,
-            )
+            ).to(self.device)
 
             if self.trackers is not None:
                 for tracker in self.trackers:
