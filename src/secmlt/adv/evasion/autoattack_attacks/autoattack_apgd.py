@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 import torch
 from autoattack.autopgd_base import APGDAttack
+
 from .autoattack_base import BaseAutoAttack
 
 if TYPE_CHECKING:

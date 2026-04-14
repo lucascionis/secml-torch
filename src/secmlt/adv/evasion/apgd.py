@@ -101,9 +101,7 @@ class APGD(BaseEvasionAttackCreator):
 
     @classmethod
     def get_implementation(cls, backend: str) -> BaseEvasionAttack:
-        """
-        Get the Auto-PGD implementation for the requested backend.
-        """
+        """Get the Auto-PGD implementation for the requested backend."""
         cls.check_backend_available(backend)
         implementations = {
             Backends.AUTOATTACK: cls._get_autoattack_implementation,

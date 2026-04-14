@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
-import torch
 from secmlt.adv.evasion.base_evasion_attack import BaseEvasionAttack
 from secmlt.adv.evasion.perturbation_models import LpPerturbationModels
 from secmlt.models.pytorch.base_pytorch_nn import BasePyTorchClassifier
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
+    import torch
     from secmlt.models.base_model import BaseModel
     from secmlt.trackers.trackers import Tracker
 
@@ -31,7 +31,8 @@ class BaseAutoAttack(BaseEvasionAttack):
         trackers: list[Tracker] | None = None,
         device: torch.device | str | None = None,
     ) -> None:
-        """
+        """Initialize the AutoAttack base wrapper.
+
         Parameters
         ----------
         perturbation_model : str
@@ -41,8 +42,7 @@ class BaseAutoAttack(BaseEvasionAttack):
         trackers : list[Tracker] | None, optional
             Trackers (not supported by AutoAttack, for API compatibility).
         device : torch.device | str | None, optional
-            Device hint for the attack. Samples are already moved by the
-            base class; this is passed downstream when provided.
+            Device hint for the attack.
         """
         self._trackers = None
         if trackers is not None:

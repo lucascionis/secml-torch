@@ -397,14 +397,15 @@ def test_modular_attack_accepts_custom_loss_instance():
 
 def test_apgd_advlib_attack_runs(model, data_loader):
     pytest.skip(
-        "AdvLib AutoPGD uses grad-tracked clamps (`torch.maximum/torch.minimum(..., out=...)`), "
+        "AdvLib AutoPGD uses grad-tracked clamps "
         "which PyTorch 2.5+ disallows during testing."
     )
 
 
 def test_apgd_autoattack_import_error(monkeypatch):
     def _raise():
-        raise ImportError("AutoAttack extra not installed.")
+        msg = "AutoAttack extra not installed."
+        raise ImportError(msg)
 
     monkeypatch.setattr(APGD, "_get_autoattack_implementation", staticmethod(_raise))
 
@@ -432,7 +433,8 @@ def test_apgd_autoattack_targeted_not_supported(monkeypatch):
             return {LpPerturbationModels.LINF}
 
         def _run(self, model, samples, labels):
-            raise AssertionError("Run should not be invoked in this test.")
+            msg = "Run should not be invoked in this test."
+            raise AssertionError(msg)
 
     monkeypatch.setattr(
         APGD,
@@ -440,7 +442,7 @@ def test_apgd_autoattack_targeted_not_supported(monkeypatch):
         staticmethod(lambda: DummyAutoAttack),
     )
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Targeted AutoPGD"):
         APGD(
             perturbation_model=LpPerturbationModels.LINF,
             epsilon=0.3,
