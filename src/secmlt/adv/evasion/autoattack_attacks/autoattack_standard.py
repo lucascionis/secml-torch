@@ -76,6 +76,8 @@ class AutoAttackStandard(BaseAutoAttack):
         model = self._validate_model(model)
 
         device = self.device if self.device is not None else model._get_device()
+        samples = samples.to(device)
+        labels = labels.to(device)
         attack = AutoAttack(
             model=model,
             norm=self._autoattack_norm(),
