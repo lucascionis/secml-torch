@@ -250,6 +250,12 @@ class ModularEvasionAttack(BaseEvasionAttack):
         labels: torch.Tensor,
         init_deltas: torch.Tensor = None,
     ) -> tuple[torch.Tensor, torch.Tensor]:
+        # Move data to model device if available
+        if hasattr(model, "_get_device"):
+            device = model._get_device()
+            samples = samples.to(device)
+            labels = labels.to(device)
+
         multiplier = 1 if self.y_target is not None else -1
         target = (
             torch.zeros_like(labels) + self.y_target
