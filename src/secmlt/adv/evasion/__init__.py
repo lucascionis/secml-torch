@@ -27,3 +27,6 @@ if importlib.util.find_spec("foolbox", None) is not None:  # pragma: no cover
 if importlib.util.find_spec("adv_lib", None) is not None:  # pragma: no cover
     _ensure_visdom_stub()
     from .advlib_attacks import *  # noqa: F403
+
+if importlib.util.find_spec("autoattack", None) is not None:  # pragma: no cover
+    from .autoattack_attacks import *  # noqa: F403

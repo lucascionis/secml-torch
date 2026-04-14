@@ -1,6 +1,17 @@
+import importlib.util
+
 import pytest
 import torch
+from secmlt.adv.backends import Backends
+from secmlt.adv.evasion.advlib_attacks.advlib_apgd import APGDAdvLib
 from secmlt.adv.evasion.advlib_attacks.advlib_pgd import PGDAdvLib
+from secmlt.adv.evasion.apgd import APGD
+from secmlt.adv.evasion.autoattack_attacks.autoattack_apgd import (
+    APGDAutoAttack,
+)
+from secmlt.adv.evasion.autoattack_attacks.autoattack_standard import (
+    AutoAttackStandard,
+)
 from secmlt.adv.evasion.base_evasion_attack import BaseEvasionAttack
 from secmlt.adv.evasion.ddn import DDN
 from secmlt.adv.evasion.fmn import FMN, FMNNative
@@ -266,6 +277,52 @@ def test_attack_warns_when_streaming_with_trackers(model, data_loader):
     assert first_batch_adv.shape[0] == first_batch_labels.shape[0]
 
 
+@pytest.mark.parametrize(
+    (
+        "backend",
+        "perturbation_models_apgd",
+    ),
+    [
+        (
+            Backends.ADVLIB,
+            APGDAdvLib.get_perturbation_models(),
+        ),
+        (
+            Backends.AUTOATTACK,
+            APGDAutoAttack.get_perturbation_models(),
+        ),
+    ],
+)
+def test_apgd_attack(
+    backend,
+    perturbation_models_apgd,
+    model,
+    data_loader,
+) -> BaseEvasionAttack:
+    if backend == Backends.ADVLIB:
+        pytest.skip(
+            "AdvLib AutoPGD currently breaks with PyTorch grad-enabled clamps "
+            "during testing."
+        )
+    for perturbation_model in LpPerturbationModels.pert_models:
+        if perturbation_model in perturbation_models_apgd:
+            attack = APGD(
+                perturbation_model=perturbation_model,
+                epsilon=0.3,
+                num_steps=3,
+                backend=backend,
+            )
+            assert isinstance(attack(model, data_loader), DataLoader)
+        else:
+            with pytest.raises(NotImplementedError):
+                APGD(
+                    perturbation_model=perturbation_model,
+                    epsilon=0.3,
+                    num_steps=3,
+                    backend=backend,
+                )
+
+
 @pytest.mark.parametrize("attack_class", [PGD, FMN])
 def test_invalid_perturbation_models(attack_class):
     """Test that an error is raised for invalid perturbation models."""
@@ -336,3 +393,73 @@ def test_modular_attack_accepts_custom_loss_instance():
 
     assert attack.loss_function is custom_loss
     assert attack.loss_function.reduction == "mean"
+
+
+def test_apgd_advlib_attack_runs(model, data_loader):
+    pytest.skip(
+        "AdvLib AutoPGD uses grad-tracked clamps (`torch.maximum/torch.minimum(..., out=...)`), "
+        "which PyTorch 2.5+ disallows during testing."
+    )
+
+
+def test_apgd_autoattack_import_error(monkeypatch):
+    def _raise():
+        raise ImportError("AutoAttack extra not installed.")
+
+    monkeypatch.setattr(APGD, "_get_autoattack_implementation", staticmethod(_raise))
+
+    with pytest.raises(ImportError):
+        APGD(
+            perturbation_model=LpPerturbationModels.LINF,
+            epsilon=0.3,
+            num_steps=5,
+            backend=Backends.AUTOATTACK,
+        )
+
+
+def test_apgd_autoattack_targeted_not_supported(monkeypatch):
+    class DummyAutoAttack(BaseEvasionAttack):
+        def __init__(self, *, perturbation_model: str, **kwargs):
+            self.kwargs = kwargs
+            self.perturbation_model = perturbation_model
+
+        @classmethod
+        def _trackers_allowed(cls):
+            return False
+
+        @staticmethod
+        def get_perturbation_models() -> set[str]:
+            return {LpPerturbationModels.LINF}
+
+        def _run(self, model, samples, labels):
+            raise AssertionError("Run should not be invoked in this test.")
+
+    monkeypatch.setattr(
+        APGD,
+        "_get_autoattack_implementation",
+        staticmethod(lambda: DummyAutoAttack),
+    )
+
+    with pytest.raises(ValueError):
+        APGD(
+            perturbation_model=LpPerturbationModels.LINF,
+            epsilon=0.3,
+            num_steps=5,
+            backend=Backends.AUTOATTACK,
+            y_target=1,
+        )
+
+
+def test_autoattack_standard_runs(model, data_loader):
+    if importlib.util.find_spec("autoattack") is None:
+        pytest.skip("AutoAttack not installed")
+
+    attacks_to_run = ["apgd-ce", "apgd-t"]
+    attack = AutoAttackStandard(
+        perturbation_model=LpPerturbationModels.LINF,
+        epsilon=0.3,
+        attacks_to_run=attacks_to_run,
+    )
+    adv_loader = attack(model, data_loader)
+
+    assert isinstance(adv_loader, DataLoader)

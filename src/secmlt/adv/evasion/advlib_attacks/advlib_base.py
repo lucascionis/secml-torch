@@ -19,6 +19,8 @@ if TYPE_CHECKING:
 class BaseAdvLibEvasionAttack(BaseEvasionAttack):
     """Generic wrapper for Adversarial Library Evasion attacks."""
 
+    EPSILON_KWARG: str = "ε"
+
     def __init__(
         self,
         advlib_attack: Callable[..., torch.Tensor],
@@ -80,7 +82,7 @@ class BaseAdvLibEvasionAttack(BaseEvasionAttack):
             labels = labels.to(device)
             targets = labels
         if self.epsilon < float(torch.inf):
-            self.kwargs.update({"ε": self.epsilon})
+            self.kwargs.update({self.EPSILON_KWARG: self.epsilon})
         advx = self.advlib_attack(
             model=model,
             inputs=samples,
