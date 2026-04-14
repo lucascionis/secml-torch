@@ -6,6 +6,7 @@ from secmlt.adv.backends import Backends
 from secmlt.adv.evasion.advlib_attacks.advlib_apgd import APGDAdvLib
 from secmlt.adv.evasion.advlib_attacks.advlib_pgd import PGDAdvLib
 from secmlt.adv.evasion.apgd import APGD
+from secmlt.adv.evasion.apgd_native import APGDNative
 from secmlt.adv.evasion.autoattack_attacks.autoattack_apgd import (
     APGDAutoAttack,
 )
@@ -291,6 +292,10 @@ def test_attack_warns_when_streaming_with_trackers(model, data_loader):
             Backends.AUTOATTACK,
             APGDAutoAttack.get_perturbation_models(),
         ),
+        (
+            Backends.NATIVE,
+            APGDNative.get_perturbation_models(),
+        ),
     ],
 )
 def test_apgd_attack(
@@ -393,6 +398,24 @@ def test_modular_attack_accepts_custom_loss_instance():
 
     assert attack.loss_function is custom_loss
     assert attack.loss_function.reduction == "mean"
+
+
+@pytest.mark.parametrize("loss", ["ce", "dlr"])
+def test_apgd_native_with_trackers(loss, model, data_loader):
+    attack = APGD(
+        perturbation_model=LpPerturbationModels.LINF,
+        epsilon=0.3,
+        num_steps=5,
+        loss=loss,
+        backend=Backends.NATIVE,
+        trackers=[LossTracker()],
+    )
+    adv_loader = attack(model, data_loader)
+    assert isinstance(adv_loader, DataLoader)
+    tracked = attack.trackers[0].get()
+    assert tracked is not None
+    num_steps = 5
+    assert tracked.shape[1] == num_steps
 
 
 def test_apgd_advlib_attack_runs(model, data_loader):

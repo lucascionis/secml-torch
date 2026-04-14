@@ -41,21 +41,12 @@ class APGD(BaseEvasionAttackCreator):
         **kwargs,
     ) -> BaseEvasionAttack:
         """Create an Auto-PGD attack with the requested backend."""
-        if backend == Backends.NATIVE:
-            msg = (
-                "Native AutoPGD implementation is not available. "
-                "Use the AutoAttack or adv_lib backends instead."
-            )
-            raise NotImplementedError(msg)
         cls.check_backend_available(backend)
         implementation = cls.get_implementation(backend)
         implementation.check_perturbation_model_available(perturbation_model)
         if backend == Backends.AUTOATTACK and y_target is not None:
             msg = "Targeted AutoPGD is not supported through AutoAttack."
             raise ValueError(msg)
-        if backend == Backends.NATIVE and n_restarts != 1:
-            msg = "Native AutoPGD does not support restarts yet."
-            raise NotImplementedError(msg)
 
         if backend == Backends.NATIVE:
             return implementation(
@@ -132,5 +123,6 @@ class APGD(BaseEvasionAttackCreator):
 
     @staticmethod
     def _get_native_implementation() -> type[BaseEvasionAttack]:
-        msg = "Native AutoPGD implementation is not available."
-        raise NotImplementedError(msg)
+        from secmlt.adv.evasion.apgd_native import APGDNative
+
+        return APGDNative
