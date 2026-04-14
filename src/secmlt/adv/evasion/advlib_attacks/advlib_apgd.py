@@ -106,6 +106,7 @@ class APGDAdvLib(BaseAdvLibEvasionAttack):
             )
             raise ValueError(msg)
 
+        kwargs.pop("device", None)
         use_large_reps = kwargs.pop("use_large_reps", use_largereps)
         best_loss = kwargs.pop("best_loss", best_loss)
         use_rs = kwargs.pop("use_rs", use_rs)
