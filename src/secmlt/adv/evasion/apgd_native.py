@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Union
 
 import torch
 from secmlt.adv.evasion.losses import DLRLoss, TargetedDLRLoss
@@ -17,7 +17,10 @@ from secmlt.optimization.constraints import (
     L2Constraint,
     LInfConstraint,
 )
-from secmlt.optimization.gradient_processing import LinearProjectionGradientProcessing
+from secmlt.optimization.gradient_processing import (
+    LinearProjectionGradientProcessing,
+    SparseL1GradientProcessing,
+)
 from secmlt.optimization.initializer import Initializer, RandomLpInitializer
 from secmlt.optimization.optimizer_factory import OptimizerFactory
 from secmlt.optimization.scheduler_factory import LRSchedulerFactory
@@ -31,6 +34,7 @@ if TYPE_CHECKING:
 
 CE_LOSS = "ce"
 DLR_LOSS = "dlr"
+_SPARSITY_IMPROVEMENT_THRESHOLD = 0.95
 
 _LOSS_FUNCTIONS = {
     CE_LOSS: lambda _targeted: torch.nn.CrossEntropyLoss(reduction="none"),
@@ -46,20 +50,14 @@ def _check_oscillation(
 ) -> torch.Tensor:
     """Check per-sample oscillation over the last k iterations.
 
-    Returns a boolean mask (batch,) where True means oscillation is detected
-    (loss improved fewer than rho fraction of the time).
+    Returns a boolean mask (batch,) where True means the loss improved
+    fewer than ``rho`` fraction of the time (i.e. oscillation detected).
     """
     if iteration < k:
         return torch.zeros(loss_history.shape[0], dtype=torch.bool)
 
     window = loss_history[:, iteration - k + 1 : iteration + 1]
-    # Count how many times loss improved (decreased) step-to-step
     diffs = window[:, 1:] - window[:, :-1]
-    # For a minimization attack, loss going down is good.
-    # But APGD tracks the *attack* loss which we maximize (multiplier flips sign).
-    # In the loop, losses are already multiplied. A "good" step means loss went down
-    # (since multiplier makes it so lower = better for the attacker).
-    # Oscillation = too many steps where loss didn't improve.
     n_improved = (diffs < 0).sum(dim=1).float()
     return n_improved <= k * rho
 
@@ -70,7 +68,7 @@ class APGDNative(ModularEvasionAttackFixedEps):
     def __init__(
         self,
         perturbation_model: str,
-        epsilon: float,
+        epsilon: Union[float, torch.Tensor],
         num_steps: int,
         rho: float = 0.75,
         loss: str = CE_LOSS,
@@ -88,8 +86,8 @@ class APGDNative(ModularEvasionAttackFixedEps):
         ----------
         perturbation_model : str
             Perturbation model (l1, l2, linf).
-        epsilon : float
-            Perturbation budget.
+        epsilon : float | torch.Tensor
+            Perturbation budget. Scalar or per-sample tensor.
         num_steps : int
             Number of attack iterations.
         rho : float, optional
@@ -113,6 +111,7 @@ class APGDNative(ModularEvasionAttackFixedEps):
         self.n_restarts = n_restarts
         self.epsilon = epsilon
         self.perturbation_model = perturbation_model
+        self._is_l1 = perturbation_model == LpPerturbationModels.L1
 
         perturbation_models = {
             LpPerturbationModels.L1: L1Constraint,
@@ -134,7 +133,17 @@ class APGDNative(ModularEvasionAttackFixedEps):
             raise ValueError(msg)
         loss_fn = _LOSS_FUNCTIONS[loss](targeted)
 
-        gradient_processing = LinearProjectionGradientProcessing(perturbation_model)
+        # Gradient processing: sparse topk for L1, standard for others
+        # For L1, a placeholder is created here; batch-sized topk is set in _run_loop
+        if self._is_l1:
+            gradient_processing = SparseL1GradientProcessing(
+                topk=torch.tensor([0.2]), n_fts=1
+            )
+        else:
+            gradient_processing = LinearProjectionGradientProcessing(
+                perturbation_model
+            )
+
         perturbation_constraints = [
             perturbation_models[perturbation_model](radius=epsilon),
         ]
@@ -144,11 +153,15 @@ class APGDNative(ModularEvasionAttackFixedEps):
             perturbation_constraints=perturbation_constraints,
         )
 
-        # Initial step size: 2*epsilon for Linf/L2, epsilon for L1
-        if perturbation_model == LpPerturbationModels.L1:
-            step_size = epsilon
+        # Initial step size: epsilon for L1, 2*epsilon for Linf/L2
+        if self._is_l1:
+            step_size = epsilon if isinstance(epsilon, float) else epsilon.max().item()
         else:
-            step_size = 2.0 * epsilon
+            step_size = (
+                2.0 * epsilon
+                if isinstance(epsilon, float)
+                else 2.0 * epsilon.max().item()
+            )
 
         super().__init__(
             y_target=y_target,
@@ -163,6 +176,61 @@ class APGDNative(ModularEvasionAttackFixedEps):
             trackers=trackers,
         )
 
+    def _init_loop_state(
+        self, samples: torch.Tensor, delta: torch.Tensor
+    ) -> dict:
+        """Initialize all loop state variables."""
+        batch_size = samples.shape[0]
+        device = samples.device
+
+        eps_t = (
+            torch.as_tensor(self.epsilon, dtype=samples.dtype, device=device)
+            if not isinstance(self.epsilon, torch.Tensor)
+            else self.epsilon.to(device)
+        )
+        alpha = 1.0 if self._is_l1 else 2.0
+
+        if self._is_l1:
+            k = max(int(0.04 * self.num_steps), 1)
+            k_min = max(int(0.02 * self.num_steps), 1)
+            size_decr = max(int(0.01 * self.num_steps), 1)
+            n_fts = samples[0].numel()
+            topk = torch.full((batch_size,), 0.2)
+            self.gradient_processing = SparseL1GradientProcessing(
+                topk=topk, n_fts=n_fts
+            )
+            sp_old = torch.full((batch_size,), float(n_fts))
+        else:
+            k = max(int(0.22 * self.num_steps), 1)
+            k_min = max(int(0.06 * self.num_steps), 1)
+            size_decr = max(int(0.03 * self.num_steps), 1)
+            n_fts = 0
+            sp_old = None
+
+        step_size = torch.full(
+            (batch_size,), self.step_size, dtype=samples.dtype, device=device
+        )
+        x_adv, delta = self.manipulation_function(samples, delta)
+
+        return {
+            "eps_t": eps_t,
+            "alpha": alpha,
+            "k": k,
+            "k_min": k_min,
+            "size_decr": size_decr,
+            "n_fts": n_fts,
+            "sp_old": sp_old,
+            "step_size": step_size,
+            "best_losses": torch.full((batch_size,), torch.inf),
+            "best_delta": torch.zeros_like(samples),
+            "loss_history": torch.full((batch_size, self.num_steps), torch.inf),
+            "loss_best_at_checkpoint": torch.full((batch_size,), torch.inf),
+            "delta_prev": delta.detach().clone(),
+            "grad_before_processing": torch.zeros_like(delta),
+            "x_adv": x_adv,
+            "delta": delta,
+        }
+
     def _run_loop(
         self,
         model: BaseModel,
@@ -173,31 +241,22 @@ class APGDNative(ModularEvasionAttackFixedEps):
         scheduler: LRScheduler,
         multiplier: int,
     ) -> tuple[torch.Tensor, torch.Tensor]:
-        batch_size = samples.shape[0]
         ndim = len(samples.shape)
+        device = samples.device
+        state = self._init_loop_state(samples, delta)
 
-        # Checkpoint schedule
-        k = max(int(0.22 * self.num_steps), 1)
-        k_min = max(int(0.06 * self.num_steps), 1)
-        size_decr = max(int(0.03 * self.num_steps), 1)
-
-        # Per-sample step sizes
-        step_size = torch.full(
-            (batch_size,), self.step_size, dtype=samples.dtype, device=samples.device
-        )
-
-        # State tracking
-        best_losses = torch.full((batch_size,), torch.inf)
-        best_delta = torch.zeros_like(samples)
-        loss_history = torch.full((batch_size, self.num_steps), torch.inf)
-        loss_best_at_checkpoint = torch.full((batch_size,), torch.inf)
-
-        # Momentum state
-        delta_prev = delta.detach().clone()
-        grad_before_processing = torch.zeros_like(delta)
-
-        # Initial projection
-        x_adv, delta = self.manipulation_function(samples, delta)
+        step_size = state["step_size"]
+        best_losses = state["best_losses"]
+        best_delta = state["best_delta"]
+        loss_history = state["loss_history"]
+        loss_best_at_checkpoint = state["loss_best_at_checkpoint"]
+        delta_prev = state["delta_prev"]
+        grad_before_processing = state["grad_before_processing"]
+        x_adv = state["x_adv"]
+        delta = state["delta"]
+        k = state["k"]
+        k_min = state["k_min"]
+        size_decr = state["size_decr"]
 
         checkpoint_counter = 0
 
@@ -245,11 +304,10 @@ class APGDNative(ModularEvasionAttackFixedEps):
             # Save raw gradient before processing
             grad_before_processing = delta.grad.data.clone()
 
-            # Process gradient (sign for Linf, normalize for L2, etc.)
+            # Process gradient
             grad_processed = self.gradient_processing(delta.grad.data)
 
-            # Momentum update: new_delta = delta + a*(delta - delta_prev) + step*grad
-            # For APGD, we do the gradient step then apply momentum
+            # Momentum parameter
             a = 0.75 if i > 0 else 1.0
 
             # Gradient step
@@ -257,7 +315,7 @@ class APGDNative(ModularEvasionAttackFixedEps):
             delta_after_step = delta.data - grad_step  # minus because we minimize
 
             # Project after gradient step
-            x_adv_temp, delta_after_step = self.manipulation_function(
+            _, delta_after_step = self.manipulation_function(
                 samples.data, delta_after_step
             )
 
@@ -283,21 +341,33 @@ class APGDNative(ModularEvasionAttackFixedEps):
 
             # Checkpoint: adaptive step-size reduction
             if checkpoint_counter == k and i > 0:
-                oscillating = _check_oscillation(loss_history, i, k, self.rho)
-                no_progress = loss_best_at_checkpoint <= best_losses
-                should_reduce = (oscillating | no_progress).to(samples.device)
-
-                # Halve step size for samples that need it
-                step_size = torch.where(
-                    should_reduce, step_size / 2.0, step_size
-                )
-
-                # Reset to best delta for samples that need reduction
-                reduce_mask = atleast_kd(should_reduce, ndim)
-                delta.data = torch.where(
-                    reduce_mask, best_delta.data.to(delta.device), delta.data
-                )
-                delta_prev.data = delta.data.clone()
+                if self._is_l1:
+                    self._l1_checkpoint(
+                        delta=delta,
+                        delta_prev=delta_prev,
+                        best_delta=best_delta,
+                        samples=samples,
+                        step_size=step_size,
+                        sp_old=state["sp_old"],
+                        alpha=state["alpha"],
+                        eps_t=state["eps_t"],
+                        n_fts=state["n_fts"],
+                        ndim=ndim,
+                    )
+                else:
+                    self._linf_l2_checkpoint(
+                        delta=delta,
+                        delta_prev=delta_prev,
+                        best_delta=best_delta,
+                        step_size=step_size,
+                        loss_history=loss_history,
+                        best_losses=best_losses,
+                        loss_best_at_checkpoint=loss_best_at_checkpoint,
+                        i=i,
+                        k=k,
+                        ndim=ndim,
+                        device=device,
+                    )
 
                 loss_best_at_checkpoint = best_losses.clone()
                 checkpoint_counter = 0
@@ -306,6 +376,76 @@ class APGDNative(ModularEvasionAttackFixedEps):
         # Return best adversarial
         x_adv, _ = self.manipulation_function(samples.data, best_delta.data)
         return x_adv, best_delta
+
+    def _l1_checkpoint(
+        self,
+        delta: torch.Tensor,
+        delta_prev: torch.Tensor,
+        best_delta: torch.Tensor,
+        samples: torch.Tensor,
+        step_size: torch.Tensor,
+        sp_old: torch.Tensor,
+        alpha: float,
+        eps_t: torch.Tensor,
+        n_fts: int,
+        ndim: int,
+    ) -> None:
+        """L1-specific checkpoint: adapt step size based on sparsity."""
+        device = samples.device
+        sp_curr = best_delta.to(device).flatten(1).norm(p=0, dim=1)
+        fl_redtopk = (
+            sp_curr / sp_old.to(device).clamp(min=1)
+        ) < _SPARSITY_IMPROVEMENT_THRESHOLD
+
+        # Update topk in gradient processing
+        self.gradient_processing.topk = sp_curr.cpu() / n_fts / 1.5
+
+        # Reset step size if sparsity improving, else reduce by 1.5x
+        alpha_eps = alpha * eps_t
+        step_size.copy_(
+            torch.where(fl_redtopk, alpha_eps.expand_as(step_size), step_size / 1.5)
+        )
+        step_size.clamp_(
+            (alpha_eps / 10.0).expand_as(step_size),
+            alpha_eps.expand_as(step_size),
+        )
+        sp_old.copy_(sp_curr.cpu())
+
+        # Reset to best delta for samples where sparsity improved
+        reduce_mask = atleast_kd(fl_redtopk, ndim)
+        delta.data = torch.where(
+            reduce_mask, best_delta.data.to(device), delta.data
+        )
+        delta_prev.data = delta.data.clone()
+
+    def _linf_l2_checkpoint(
+        self,
+        delta: torch.Tensor,
+        delta_prev: torch.Tensor,
+        best_delta: torch.Tensor,
+        step_size: torch.Tensor,
+        loss_history: torch.Tensor,
+        best_losses: torch.Tensor,
+        loss_best_at_checkpoint: torch.Tensor,
+        i: int,
+        k: int,
+        ndim: int,
+        device: torch.device,
+    ) -> None:
+        """Linf/L2 checkpoint: adapt step size based on oscillation."""
+        oscillating = _check_oscillation(loss_history, i, k, self.rho)
+        no_progress = loss_best_at_checkpoint <= best_losses
+        should_reduce = (oscillating | no_progress).to(device)
+
+        step_size.copy_(
+            torch.where(should_reduce, step_size / 2.0, step_size)
+        )
+
+        reduce_mask = atleast_kd(should_reduce, ndim)
+        delta.data = torch.where(
+            reduce_mask, best_delta.data.to(device), delta.data
+        )
+        delta_prev.data = delta.data.clone()
 
     def _run(
         self,

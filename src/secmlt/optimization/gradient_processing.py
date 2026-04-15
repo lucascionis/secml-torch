@@ -1,7 +1,10 @@
 """Processing functions for gradients."""
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 
+import torch
 import torch.linalg
 from secmlt.adv.evasion.perturbation_models import LpPerturbationModels
 from torch.nn.functional import normalize
@@ -109,3 +112,53 @@ class LinearProjectionGradientProcessing(GradientProcessing):
             return torch.sign(grad)
         msg = "Only L2 and LInf norms implemented now"
         raise NotImplementedError(msg)
+
+
+class SparseL1GradientProcessing(GradientProcessing):
+    """Sparse L1 gradient processing with dynamic topk filtering.
+
+    Selects the top-k fraction of gradient components by magnitude,
+    takes their sign, and normalizes by the L1 norm of the result.
+    The ``topk`` tensor is mutable and should be updated externally
+    (e.g. by the APGD checkpoint logic).
+    """
+
+    def __init__(self, topk: torch.Tensor, n_fts: int) -> None:
+        """Initialize sparse L1 gradient processing.
+
+        Parameters
+        ----------
+        topk : torch.Tensor
+            Per-sample sparsity fraction, shape ``(batch_size,)``.
+        n_fts : int
+            Total number of features per sample.
+        """
+        self.topk = topk
+        self.n_fts = n_fts
+
+    def __call__(self, grad: torch.Tensor) -> torch.Tensor:
+        """Process gradient with topk sparse filtering and L1 normalization.
+
+        Parameters
+        ----------
+        grad : torch.Tensor
+            Input gradients.
+
+        Returns
+        -------
+        torch.Tensor
+            Sparse, sign-normalized gradient direction.
+        """
+        ndim = len(grad.shape)
+        grad_abs = grad.abs().flatten(1)
+        sorted_abs = grad_abs.sort(dim=1).values
+        topk_idx = (
+            (1.0 - self.topk.to(grad.device)) * self.n_fts
+        ).clamp(0, self.n_fts - 1).long()
+        threshold = sorted_abs.gather(1, topk_idx.unsqueeze(1))
+        threshold = threshold.view(-1, *([1] * (ndim - 1)))
+        sparse_grad = grad * (grad.abs() >= threshold).float()
+
+        direction = sparse_grad.sign()
+        l1_norm = direction.flatten(1).norm(p=1, dim=1).clamp(min=1e-10)
+        return direction / l1_norm.view(-1, *([1] * (ndim - 1)))
